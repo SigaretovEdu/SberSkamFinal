@@ -1,11 +1,12 @@
-from flask import Flask
+from flask import Flask, request
 import json
 import requests
 import psycopg2
 import time
 
+
 initcommand="""CREATE TABLE IF NOT EXISTS transactions (
-    transaction_id CHARACTER VARYING (25) PRIMARY KEY,
+    transaction_id SERIAL PRIMARY KEY,
     date CHARACTER VARYING (25),
     card CHARACTER VARYING (25),
     account CHARACTER VARYING (25),
@@ -15,7 +16,7 @@ initcommand="""CREATE TABLE IF NOT EXISTS transactions (
     first_name CHARACTER VARYING (25),
     patronymic CHARACTER VARYING (25),
     date_of_birth CHARACTER VARYING (25),
-    passport BIGINT,
+    passport CHARACTER VARYING (25),
     passport_valid_to CHARACTER VARYING (25),
     phone CHARACTER VARYING (15),
     oper_type CHARACTER VARYING (15),
@@ -28,7 +29,7 @@ initcommand="""CREATE TABLE IF NOT EXISTS transactions (
 );"""
 
 add_command="""
-    INSERT INTO transactions VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);
+    INSERT INTO transactions (date,card,account,account_valid_to,client,last_name,first_name,patronymic,date_of_birth,passport,passport_valid_to,phone,oper_type,amount,oper_result,terminal,terminal_type,city,address) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);
 """
 
 app = Flask(__name__)
@@ -36,27 +37,24 @@ app = Flask(__name__)
 
 
 def init(data: dict):
+    l=[]
     for item in data:
-        a = (item,)
-        l = list(a)
-        for i in data[item]:
-            l.append(data[item][i])
-        a = tuple(l)
-        cursor.execute(add_command, a)
+        l.append(data[item])
+    a = tuple(l)
+    return a
 
 
 @app.route('/', methods=['POST','GET'])
 def mail():
-    request_data = requests.request.json
-    
+    request_data = request.json
     with connection.cursor() as cursor:
-        init(request_data)
+        cursor.execute(add_command, init(request_data))
     connection.commit()
     return request_data
 
 
 if __name__ == "__main__":
-    time.sleep(10)
+    time.sleep(5)
     connection = psycopg2.connect(
         host="db_auth",
         user="admin",
@@ -64,7 +62,6 @@ if __name__ == "__main__":
         database="postgres",
         port = 5432
     )
-
     with connection.cursor() as cursor:
         cursor.execute(initcommand)
     connection.commit()
