@@ -7,6 +7,17 @@ from os.path import exists
 from geopy.distance import geodesic
 import datetime
 
+
+frod_types=['to_old_or_young',
+'night_time',
+'same_card_num',
+'fast_operations',
+'many_declines',
+'decreasing_operation_sum',
+'invalid_password',
+'interrupt_in_card_values',
+'noname']
+
 initcommand = """CREATE TABLE IF NOT EXISTS transactions (
     transaction_id SERIAL PRIMARY KEY,
     date CHARACTER VARYING (25),
@@ -65,6 +76,10 @@ if __name__ == "__main__":
     )
     with connection.cursor() as cursor:
         cursor.execute(initcommand)
+        for i in frod_types:
+            cursor.execute("""CREATE TABLE IF NOT EXISTS {tab} (
+                transaction_id SERIAL PRIMARY KEY
+                )""".format(tab=i))
     connection.commit()
     app.run(host="0.0.0.0", port=7100, debug=True)
 
@@ -373,14 +388,14 @@ def check_adress_distance(data, client_rating: dict, f=0):
     return answer
 
 def readall(l_n: str, f_n: str, pat: str):
-answer = {}
-a = (l_n, f_n, pat)
-cursor.execute(select_all, a)
-for item in cursor.fetchall():
-    answer[item[0]] = {}
-    for i in range(1, len(item)):
-        answer[item[0]][pon[i]] = item[i]
-return answer
+    answer = {}
+    a = (l_n, f_n, pat)
+    cursor.execute(select_all, a)
+    for item in cursor.fetchall():
+        answer[item[0]] = {}
+        for i in range(1, len(item)):
+            answer[item[0]][pon[i]] = item[i]
+    return answer
 
 
 def readlastn(n: int, l_n: str, f_n: str, pat: str):
