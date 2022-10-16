@@ -2,16 +2,16 @@ version: "3"
 services:
   db_auth:
     restart: always
-    container_name: db_auth
+    container_name: db_transactions
     ports:
       - "5432:5432"
     environment:
       - POSTGRES_PASSWORD=root
       - POSTGRES_USER=admin
     image: postgres:alpine3.16
-    volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-      # - ./postgres/data:/var/lib/postgresql/data
+    # volumes:
+    #   - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    #   - ./postgres/data:/var/lib/postgresql/data
 
   flask-service:
     restart: always

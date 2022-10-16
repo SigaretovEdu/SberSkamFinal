@@ -1,5 +1,6 @@
-FROM library/postgres
-COPY init.sql /docker-entrypoint-initdb.d/
+# FROM library/postgres
+# COPY init.sql /docker-entrypoint-initdb.d/
+
 FROM python:3-alpine
 
 WORKDIR /opt/app
