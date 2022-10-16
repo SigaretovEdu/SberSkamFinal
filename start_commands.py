@@ -2,10 +2,10 @@ import psycopg2, json
 from config import *
 
 connection = psycopg2.connect(
-    host=host,
+    host=db_auth,
     user=user,
     password=password,
-    database=db_name,
+    database=postgres,
     port=port
 )
 with open("transactions.json", 'r', encoding='utf-8') as f:
