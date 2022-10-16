@@ -371,3 +371,24 @@ def check_adress_distance(data, client_rating: dict, f=0):
             print(data[item])
     print('total count: ', len(answer))
     return answer
+
+def readall(l_n: str, f_n: str, pat: str):
+answer = {}
+a = (l_n, f_n, pat)
+cursor.execute(select_all, a)
+for item in cursor.fetchall():
+    answer[item[0]] = {}
+    for i in range(1, len(item)):
+        answer[item[0]][pon[i]] = item[i]
+return answer
+
+
+def readlastn(n: int, l_n: str, f_n: str, pat: str):
+    answer = {}
+    a = (l_n, f_n, pat, 5)
+    cursor.execute(select_last_n, a)
+    for item in cursor.fetchall():
+        answer[item[0]] = {}
+        for i in range(1, len(item)):
+            answer[item[0]][pon[i]] = item[i]
+    return answer
