@@ -47,8 +47,8 @@ def init(data: dict):
 
 @app.route('/', methods=['POST','GET'])
 def mail():
-    request_data = request.json
-
+    request_data = requests.request.json
+    
     with connection.cursor() as cursor:
         init(request_data)
     connection.commit()
