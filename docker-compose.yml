@@ -1,0 +1,42 @@
+version: "3"
+services:
+  db_auth:
+    container_name: db_auth
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_USER=admin
+    image: postgres:alpine3.16
+
+  flask-service:
+    environment:
+      - FLASK_ENV=development
+      - FLASK_RUN_PORT=7100
+      - FLASK_APP=hello.py
+    build:
+      context: "."
+      dockerfile: "./flask1/Dockerfile"
+    depends_on:
+      - antifraud-db
+    expose:
+     - "7100"
+    ports:
+      - "7100:7100"
+    volumes:
+      - ./flask1:/opt/app
+  flask-service-2:
+    environment:
+      - FLASK_ENV=development
+      - FLASK_RUN_PORT=7000
+      - FLASK_APP=hello.py
+    build:
+      context: "."
+      dockerfile: "./flask2/Dockerfile"
+    depends_on:
+      - antifraud-db
+    ports:
+      - "7000:7000"
+    volumes:
+      - ./flask2:/opt/app
+  
