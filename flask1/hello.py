@@ -87,6 +87,12 @@ def init(data: dict):
 @app.route('/', methods=['POST', 'GET'])
 def mail():
     request_data = request.json
+    bill = 0
+    if check_age(request_data):
+        bill += 0.5
+
+
+
 
     with connection.cursor() as cursor:
         cursor.execute(add_command, init(request_data))
@@ -304,27 +310,14 @@ def check_reduction_of_the_amount(data: dict, client_rating: dict, f=0):
     return answer
 
 
-def check_age(data: dict, client_rating: dict, f=0):
-    print('*****\ndetected operations performed by people aged less than 33 or more than 65')
-    answer = []
-    for item in data:
-        today = data[item]['date'].split('T')[0].split('-')
-        birth = data[item]['date_of_birth'].split('T')[0].split('-')
-        if (int(birth[0]) - 1900) * 365 + int(birth[1]) * 30.5 + int(birth[2]) + 33 * 365 > (
-                int(today[0]) - 1900) * 365 + int(today[1]) * 30.5 + int(today[2]):
-            if data[item]['client'] not in answer:
-                client_rating[data[item]['client']]=-0.5
-                answer.append(item)
-        elif (int(birth[0]) - 1900) * 365 + int(birth[1]) * 30.5 + int(birth[2]) + 65 * 365 < (
-                int(today[0]) - 1900) * 365 + int(today[1]) * 30.5 + int(today[2]):
-            if data[item]['client'] not in answer:
-                client_rating[data[item]['client']]=-0.5
-                answer.append(item)
-    if f == 1:
-        for item in answer:
-            print(data[item])
-    print('total count: ', len(answer))
-    return answer
+def check_age(data: dict):
+    today = datetime.datetime.strptime(data['date'].split('T')[0], "%Y-%m-%d")
+    birthdate = datetime.datetime.strptime(data['date_of_birth'].split('T')[0], "%Y-%m-%d")
+    age = today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
+    if age < 33 or age > 65:
+        return True
+    else:
+        return False
 
 
 def check_personals(data, client_rating: dict, f=0):
