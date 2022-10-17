@@ -1,3 +1,4 @@
+import requests
 from flask import Flask, request
 import json
 import psycopg2
@@ -84,15 +85,23 @@ def init(data: dict):
 @app.route('/', methods=['POST', 'GET'])
 def mail():
     request_data = request.json
+    valid_data = True
+    for v in request_data.values():
+        if v == '':
+            print('data error', request_data['client'])
+            valid_data = False
 
-    bill = 0
-    if check_age(request_data):
-        bill += 0.5
+    if valid_data:
+        bill = 0
+        if check_age(request_data):
+            bill += 0.5
 
-    with connection.cursor() as cursor:
-        cursor.execute(add_command, init(request_data))
-    connection.commit()
-    return request_data
+        with connection.cursor() as cursor:
+            cursor.execute(add_command, init(request_data))
+        connection.commit()
+        return request_data
+    else:
+        return 'bad request', 400
 
 
 if __name__ == "__main__":
