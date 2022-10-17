@@ -5,7 +5,7 @@ import requests
 url = 'http://192.168.240.144:7100'
 headers = {"charset": "utf-8", 'Content-type': 'application/json', 'Accept': 'text/plain'}
 
-with open("transactions.json", 'r', encoding='utf-8') as f:
+with open("transactions_final.json", 'r', encoding='utf-8') as f:
     data = dict(json.load(f)['transactions'])
 
 count = 0
