@@ -7,6 +7,19 @@ from os.path import exists
 from geopy.distance import geodesic
 import datetime
 
+def inside():
+    ans=[]
+    with open("transactions.json", 'r', encoding='utf-8') as f:
+        datatada = dict(json.load(f)['transactions'])
+    for item in datatada:
+        l = []
+        for i in datatada[item]:
+            l.append(datatada[item][i])
+        a = tuple(l)
+        ans.append(a)
+    return ans
+
+
 
 frod_types=['to_old_or_young',
 'night_time',
@@ -17,6 +30,12 @@ frod_types=['to_old_or_young',
 'invalid_password',
 'interrupt_in_card_values',
 'noname']
+
+city_c="""CREATE TABLE IF NOT EXISTS city_coords (
+    client_id CHARACTER VARYING (25),
+    x_deg REAL,
+    y_deg REAL
+);"""
 
 rating ="""CREATE TABLE IF NOT EXISTS client_rating (
     client_id CHARACTER VARYING (10),
@@ -107,10 +126,12 @@ if __name__ == "__main__":
         cursor.execute(initcommand)
         cursor.execute(rating)
         cursor.execute(validat)
+        cursor.execute(city_c)
         for i in frod_types:
             cursor.execute("""CREATE TABLE IF NOT EXISTS {tab} (
                 transaction_id SERIAL PRIMARY KEY
                 )""".format(tab=i))
+        cursor.executemany(add_command,inside())
     connection.commit()
     app.run(host="0.0.0.0", port=7100, debug=True)
 
