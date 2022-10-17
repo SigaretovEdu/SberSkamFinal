@@ -224,7 +224,7 @@ frod_types=['to_old_or_young',
 'decreasing_operation_sum',
 'invalid_password',
 'interrupt_in_card_values',
-'noname']
+'noname','muitiple_validation']
 
 city_c="""CREATE TABLE IF NOT EXISTS city_coords (
     client_id CHARACTER VARYING (25),
@@ -245,8 +245,10 @@ validat = """CREATE TABLE IF NOT EXISTS validation (
     passport_valid_to CHARACTER VARYING (25)
 )"""
 
+check_valid="""SELECT passport_valid_to FROM validat WHERE passport = %s"""
+
 initcommand = """CREATE TABLE IF NOT EXISTS transactions (
-    transaction_id SERIAL PRIMARY KEY,
+    transaction_id BIGINT PRIMARY KEY,
     date CHARACTER VARYING (25),
     card CHARACTER VARYING (25),
     account CHARACTER VARYING (25),
@@ -283,7 +285,7 @@ pon = (
     'terminal_type', 'city', 'address')
 
 add_command = """
-    INSERT INTO transactions (date,card,account,account_valid_to,client,last_name,first_name,patronymic,date_of_birth,passport,passport_valid_to,phone,oper_type,amount,oper_result,terminal,terminal_type,city,address) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);
+    INSERT INTO transactions VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);
 """
 
 
@@ -309,13 +311,55 @@ def mail():
             cursor.execute(add_command, init(request_data))
         connection.commit()
         
+
         last=readlastn(3,request_data)
         bill = 0
 
+        # age
         if check_age(request_data):
             bill += 0.5
-        # if check_night_time(request_data):
-        #     bill +=
+            with connection.cursor() as cursor:
+                cursor.execute("""INSERT INTO to_old_or_young VALUES %s""",(request_data['id']))
+
+        
+        # multiple validation
+        with connection.cursor() as cursor:
+            s_valids = cursor.execute(check_valid,(request_data['passport'],))
+        mult_val = False
+        for item in s_valids:
+            if str(item) != request_data['passport_valid_to']:
+                mult_val = True
+                break
+        if mult_val:
+            bill += 16
+            with connection.cursor() as cursor:
+                cursor.execute("""INSERT INTO muitiple_validation VALUES %s""",(request_data['id']))
+
+        # night
+
+
+        # brute
+
+
+        # ddos
+
+
+        # rejections
+
+
+        # amount less
+
+
+        # invalid passport
+
+
+        # invalid account
+
+
+        # city
+
+
+
     else:
         return 'bad request', 400
 
