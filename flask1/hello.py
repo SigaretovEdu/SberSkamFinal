@@ -208,11 +208,10 @@ def readall(l_n: str, f_n: str, pat: str):
 def readlastn(n: int, cl: str):
     answer = []
     a = (cl, n)
-    cursor.execute(select_last_n, a)
-    for item in cursor.fetchall():
-        answer[item[0]] = {}
-        for i in range(1, len(item)):
-            answer[item[0]][pon[i]] = item[i]
+    with connection.cursor() as cursor:
+        cursor.execute(select_last_n, a)
+        for item in cursor.fetchall():
+            answer.append(item)
     return answer
 
 
@@ -222,12 +221,13 @@ frod_types=['to_old_or_young',
 'fast_operations',
 'many_declines',
 'decreasing_operation_sum',
-'invalid_password',
+'invalid_passport',
 'interrupt_in_card_values',
-'noname','muitiple_validation']
+'account_validation',
+'muitiple_validation']
 
 city_c="""CREATE TABLE IF NOT EXISTS city_coords (
-    client_id CHARACTER VARYING (25),
+    city_name CHARACTER VARYING (25),
     x_deg REAL,
     y_deg REAL
 );"""
@@ -309,10 +309,8 @@ def mail():
     if valid_data:
         with connection.cursor() as cursor:
             cursor.execute(add_command, init(request_data))
-        connection.commit()
         
-
-        last=readlastn(3,request_data)
+        last=readlastn(3,request_data['client'])
         bill = 0
 
         # age
@@ -335,31 +333,61 @@ def mail():
             with connection.cursor() as cursor:
                 cursor.execute("""INSERT INTO muitiple_validation VALUES %s""",(request_data['id']))
 
-        # night
-
+        # # night
+        # if_night = check_night_time(request_data)
+        # if if_night:
+        #     pass
+        # else:
+        #     pass
+        # nc, dc = 1, 1
+        # if nc/(nc+dc) > 0.55:
+        #     bill += 0
+        #     if if_night:
+        #         with connection.cursor() as cursor:
+        #             cursor.execute("""INSERT INTO muitiple_validation VALUES %s""",(request_data['id']))
 
         # brute
-
+        if check_brute(last):
+            bill += 0
+            with connection.cursor() as cursor:
+                cursor.execute("""INSERT INTO same_card_num VALUES %s""",(request_data['id']))
 
         # ddos
-
+        if check_fast_operations(last):
+            bill += 0
+            with connection.cursor() as cursor:
+                cursor.execute("""INSERT INTO fast_operations VALUES %s""",(request_data['id']))
 
         # rejections
-
+        if check_decline(last):
+            bill += 0
+            with connection.cursor() as cursor:
+                cursor.execute("""INSERT INTO many_declines VALUES %s""",(request_data['id']))
 
         # amount less
-
+        if check_reduction_of_the_amount(last):
+            bill += 0
+            with connection.cursor() as cursor:
+                cursor.execute("""INSERT INTO decreasing_operation_sum VALUES %s""",(request_data['id']))
 
         # invalid passport
-
+        if check_failed_passport_validation(last):
+            bill += 0
+            with connection.cursor() as cursor:
+                cursor.execute("""INSERT INTO invalid_passport VALUES %s""",(request_data['id']))
 
         # invalid account
-
+        if check_failed_account_validation(last):
+            bill += 0
+            with connection.cursor() as cursor:
+                cursor.execute("""INSERT INTO account_validation VALUES %s""",(request_data['id']))
 
         # city
 
 
-
+        with connection.cursor() as cursor:
+            cursor.execute("""UPDATE client_rating SET rating=rating-%s WHERE client_id=%s""",(bill,request_data['client_id']))
+        connection.commit()
     else:
         return 'bad request', 400
 
