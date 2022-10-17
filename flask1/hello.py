@@ -40,28 +40,6 @@ def check_failed_passport_validation(data: dict, client_rating: dict, f=0):
     return answer
 
 
-def check_multiple_passport_validation(data: dict, client_rating: dict, f=0):
-    print('*****\ndetected for multiple passport validation')
-    answer = []
-    d = {}
-    for item in data:
-        if (data[item]['client'], data[item]['passport']) not in d.keys():
-            d[(data[item]['client'], data[item]['passport'])] = {data[item]['passport_valid_to']}
-        else:
-            d[(data[item]['client'], data[item]['passport'])].add((data[item]['passport_valid_to']))
-    for k, v in d.items():
-        if len(v) > 1:
-            client_rating[k[0]] -= 17
-            for item in data:
-                if data[item]['client'] == k[0] and data[item]['passport'] == k[1]:
-                    answer.append(item)
-    if f == 1:
-        for item in answer:
-            print(data[item])
-    print('total count: ', len(answer))
-    return answer
-
-
 def check_failed_account_validation(data: dict):
     t1 = datetime.datetime.strptime(data['date'].split('T')[0], "%Y-%m-%d")
     t2 = datetime.datetime.strptime(data['account_valid_to'].split('T')[0], "%Y-%m-%d")
@@ -234,10 +212,11 @@ city_c="""CREATE TABLE IF NOT EXISTS city_coords (
 
 
 rating = """CREATE TABLE IF NOT EXISTS client_rating (
-    client_id CHARACTER VARYING (10),
+    client_id CHARACTER VARYING (10) PRIMARY KEY,
     rating REAL,
     day_operations INT,
-    night_operations INT
+    night_operations INT,
+    age INT
 );"""
 
 validat = """CREATE TABLE IF NOT EXISTS validation (
@@ -245,7 +224,7 @@ validat = """CREATE TABLE IF NOT EXISTS validation (
     passport_valid_to CHARACTER VARYING (25)
 )"""
 
-check_valid="""SELECT passport_valid_to FROM validat WHERE passport = %s"""
+check_valid="""SELECT passport_valid_to FROM validation WHERE passport = %s"""
 
 initcommand = """CREATE TABLE IF NOT EXISTS transactions (
     transaction_id BIGINT PRIMARY KEY,
@@ -284,8 +263,11 @@ pon = (
     'date_of_birth', 'passport', 'passport_valid_to', 'phone', 'oper_type', 'amount', 'oper_result', 'terminal',
     'terminal_type', 'city', 'address')
 
-add_command = """
+add_command1 = """
     INSERT INTO transactions VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);
+"""
+add_command2 = """
+    INSERT INTO client_rating VALUES(%s,%s,%s,%s,%s) ON CONFLICT (client_id) DO NOTHING;
 """
 
 
@@ -308,16 +290,18 @@ def mail():
 
     if valid_data:
         with connection.cursor() as cursor:
-            cursor.execute(add_command, init(request_data))
+            cursor.execute(add_command1, init(request_data))
+            cursor.execute(add_command2,(request_data['client'],100,0,0,0))
+
         
         last=readlastn(3,request_data['client'])
         bill = 0
 
         # age
         if check_age(request_data):
-            bill += 0.5
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO to_old_or_young VALUES %s""",(request_data['id']))
+                cursor.execute("""UPDATE client_rating SET age=1 WHERE client_id=%s""",(request_data['id'],))
+                cursor.execute("""INSERT INTO to_old_or_young VALUES %s""",(request_data['id'],))
 
         
         # multiple validation
@@ -333,54 +317,48 @@ def mail():
             with connection.cursor() as cursor:
                 cursor.execute("""INSERT INTO muitiple_validation VALUES %s""",(request_data['id']))
 
-        # # night
-        # if_night = check_night_time(request_data)
-        # if if_night:
-        #     pass
-        # else:
-        #     pass
-        # nc, dc = 1, 1
-        # if nc/(nc+dc) > 0.55:
-        #     bill += 0
-        #     if if_night:
-        #         with connection.cursor() as cursor:
-        #             cursor.execute("""INSERT INTO muitiple_validation VALUES %s""",(request_data['id']))
+        # night
+        if_night = check_night_time(request_data)
+        if if_night:
+            cursor.execute("""UPDATE client_rating SET day_operations = day_operations + 1 WHERE client=%s""",(request_data['client'],))
+        else:
+            cursor.execute("""UPDATE client_rating SET day_operations = night_operations + 1 WHERE client=%s""",(request_data['client'],))
 
         # brute
         if check_brute(last):
             bill += 0
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO same_card_num VALUES %s""",(request_data['id']))
+                cursor.execute("""INSERT INTO same_card_num VALUES %s""",(request_data['id'],))
 
         # ddos
         if check_fast_operations(last):
             bill += 0
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO fast_operations VALUES %s""",(request_data['id']))
+                cursor.execute("""INSERT INTO fast_operations VALUES %s""",(request_data['id'],))
 
         # rejections
         if check_decline(last):
             bill += 0
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO many_declines VALUES %s""",(request_data['id']))
+                cursor.execute("""INSERT INTO many_declines VALUES %s""",(request_data['id'],))
 
         # amount less
         if check_reduction_of_the_amount(last):
             bill += 0
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO decreasing_operation_sum VALUES %s""",(request_data['id']))
+                cursor.execute("""INSERT INTO decreasing_operation_sum VALUES %s""",(request_data['id'],))
 
         # invalid passport
         if check_failed_passport_validation(last):
             bill += 0
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO invalid_passport VALUES %s""",(request_data['id']))
+                cursor.execute("""INSERT INTO invalid_passport VALUES %s""",(request_data['id'],))
 
         # invalid account
         if check_failed_account_validation(last):
             bill += 0
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO account_validation VALUES %s""",(request_data['id']))
+                cursor.execute("""INSERT INTO account_validation VALUES %s""",(request_data['id'],))
 
         # city
 
