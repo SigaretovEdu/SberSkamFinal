@@ -18,6 +18,18 @@ frod_types=['to_old_or_young',
 'interrupt_in_card_values',
 'noname']
 
+rating ="""CREATE TABLE IF NOT EXISTS client_rating (
+    client_id CHARACTER VARYING (10),
+    rating REAL,
+    day_operations INT,
+    night_operations INT
+);"""
+
+validat="""CREATE TABLE IF NOT EXISTS validation (
+    passport CHARACTER VARYING (25),
+    passport_valid_to CHARACTER VARYING (25)
+)"""
+
 initcommand = """CREATE TABLE IF NOT EXISTS transactions (
     transaction_id SERIAL PRIMARY KEY,
     date CHARACTER VARYING (25),
@@ -76,6 +88,8 @@ if __name__ == "__main__":
     )
     with connection.cursor() as cursor:
         cursor.execute(initcommand)
+        cursor.execute(rating)
+        cursor.execute(validat)
         for i in frod_types:
             cursor.execute("""CREATE TABLE IF NOT EXISTS {tab} (
                 transaction_id SERIAL PRIMARY KEY
