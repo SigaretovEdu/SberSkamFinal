@@ -270,7 +270,7 @@ def mail():
         bill = 0
 
         # age
-        if check_age(request_data):
+        if check_age(last[0]):
             with connection.cursor() as cursor:
                 cursor.execute("""UPDATE client_rating SET age=1 WHERE client_id=%s""",(request_data['id'],))
                 cursor.execute("""INSERT INTO to_old_or_young VALUES %s""",(request_data['id'],))
@@ -278,7 +278,8 @@ def mail():
         
         # multiple validation
         with connection.cursor() as cursor:
-            s_valids = cursor.execute(check_valid,(request_data['passport'],))
+            cursor.execute(check_valid,(request_data['passport'],))
+            s_valids = cursor.fetchall()
         mult_val = False
         for item in s_valids:
             if str(item) != request_data['passport_valid_to']:
@@ -290,44 +291,44 @@ def mail():
                 cursor.execute("""INSERT INTO muitiple_validation VALUES %s""",(request_data['id']))
 
         # night
-        if_night = check_night_time(request_data)
+        if_night = check_night_time(last[0])
         if if_night:
             cursor.execute("""UPDATE client_rating SET day_operations = day_operations + 1 WHERE client=%s""",(request_data['client'],))
         else:
             cursor.execute("""UPDATE client_rating SET day_operations = night_operations + 1 WHERE client=%s""",(request_data['client'],))
 
         # brute
-        if check_brute(last):
+        if check_brute(last) and len(last) == 3:
             bill += 0
             with connection.cursor() as cursor:
                 cursor.execute("""INSERT INTO same_card_num VALUES %s""",(request_data['id'],))
 
         # ddos
-        if check_fast_operations(last):
+        if check_fast_operations(last) and len(last) == 3:
             bill += 0
             with connection.cursor() as cursor:
                 cursor.execute("""INSERT INTO fast_operations VALUES %s""",(request_data['id'],))
 
         # rejections
-        if check_decline(last):
+        if check_decline(last) and len(last) == 3:
             bill += 0
             with connection.cursor() as cursor:
                 cursor.execute("""INSERT INTO many_declines VALUES %s""",(request_data['id'],))
 
         # amount less
-        if check_reduction_of_the_amount(last):
+        if check_reduction_of_the_amount(last) and len(last) == 3:
             bill += 0
             with connection.cursor() as cursor:
                 cursor.execute("""INSERT INTO decreasing_operation_sum VALUES %s""",(request_data['id'],))
 
         # invalid passport
-        if check_failed_passport_validation(last):
+        if check_failed_passport_validation(last[0]):
             bill += 0
             with connection.cursor() as cursor:
                 cursor.execute("""INSERT INTO invalid_passport VALUES %s""",(request_data['id'],))
 
         # invalid account
-        if check_failed_account_validation(last):
+        if check_failed_account_validation(last[0]):
             bill += 0
             with connection.cursor() as cursor:
                 cursor.execute("""INSERT INTO account_validation VALUES %s""",(request_data['id'],))
