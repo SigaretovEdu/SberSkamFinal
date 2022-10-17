@@ -7,6 +7,7 @@ import wikipedia
 from os.path import exists
 from geopy.distance import geodesic
 import datetime
+import logging
 
 
 app = Flask(__name__)
@@ -60,7 +61,7 @@ def check_night_time(data: dict):
 
 
 def check_fast_operations(l: list, delta: int):
-    pause = 0
+    pause = datetime.timedelta(minutes=0)
     for i in range(0, len(l) - 1):
         t1 = datetime.datetime.strptime(l[i]['date'], "%Y-%m-%dT%H:%M:%S")
         t2 = datetime.datetime.strptime(l[i + 1]['date'], "%Y-%m-%dT%H:%M:%S")
@@ -75,7 +76,7 @@ def check_fast_operations(l: list, delta: int):
 
 def check_reduction_of_the_amount(l: list):
     if l[0]['oper_result'] == 'Отказ' and l[1]['oper_result'] == 'Отказ':
-        if l[0]['amount'] * 2 < l[0]['amount']:
+        if l[0]['amount'] * 2 < l[1]['amount']:
             return True
     else:
         return False
@@ -161,7 +162,6 @@ def readlastn(n: int, cl: str):
     with connection.cursor() as cursor:
         cursor.execute(select_last_n, a)
         roar=cursor.fetchall()
-        print(roar)
         for pars in roar:
             d = {"id": int(pars[0]),
                 "date": pars[1],
@@ -189,18 +189,16 @@ def readlastn(n: int, cl: str):
 
 
 frod_types=['to_old_or_young',
-'night_time',
 'same_card_num',
 'fast_operations',
 'many_declines',
 'decreasing_operation_sum',
 'invalid_passport',
-'interrupt_in_card_values',
 'account_validation',
 'muitiple_validation']
 
 city_c="""CREATE TABLE IF NOT EXISTS city_coords (
-    city_name CHARACTER VARYING (25),
+    city_name CHARACTER VARYING (25) PRIMARY KEY,
     x_deg REAL,
     y_deg REAL
 );"""
@@ -211,15 +209,16 @@ rating = """CREATE TABLE IF NOT EXISTS client_rating (
     rating REAL,
     day_operations INT,
     night_operations INT,
-    age INT
+    age INT,
+    mult INT
 );"""
 
 validat = """CREATE TABLE IF NOT EXISTS validation (
-    passport CHARACTER VARYING (25),
+    passport CHARACTER VARYING (25) PRIMARY KEY,
     passport_valid_to CHARACTER VARYING (25)
 );"""
 
-check_valid="""SELECT passport_valid_to FROM validation WHERE passport = %s;"""
+check_valid="""SELECT passport_valid_to FROM validation WHERE passport = %s AND passport_valid_to != %s;"""
 
 initcommand = """CREATE TABLE IF NOT EXISTS transactions (
     transaction_id BIGINT PRIMARY KEY,
@@ -262,7 +261,7 @@ add_command1 = """
     INSERT INTO transactions VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (transaction_id) DO NOTHING;
 """
 add_command2 = """
-    INSERT INTO client_rating VALUES(%s,%s,%s,%s,%s) ON CONFLICT (client_id) DO NOTHING;
+    INSERT INTO client_rating VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT (client_id) DO NOTHING;
 """
 add_command3 = """
     INSERT INTO validation VALUES(%s,%s) ON CONFLICT (passport) DO NOTHING;
@@ -288,24 +287,25 @@ def mail():
     if valid_data:
         with connection.cursor() as cursor:
             cursor.execute(add_command1, init(request_data))
-            cursor.execute(add_command2,(request_data['client'],100,0,0,0))
+            cursor.execute(add_command2,(request_data['client'],100,0,0,0,0))
             cursor.execute(add_command3,(request_data['passport'],request_data['passport_valid_to']))
 
         
         last=readlastn(3,request_data['client'])
+        if len(last)==3:
+            last[0],last[2]=last[2],last[0] 
         bill = 0
-        print(last)
 
         # age
         if check_age(last[0]):
             with connection.cursor() as cursor:
                 cursor.execute("""UPDATE client_rating SET age=1 WHERE client_id=%s;""",(request_data['client'], ))
-                cursor.execute("""INSERT INTO to_old_or_young (transaction_id) VALUES (%s) ;""", (request_data['id'],))
+                cursor.execute("""INSERT INTO to_old_or_young (transaction_id) VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING;""", (request_data['id'],))
 
         
         # multiple validation
         with connection.cursor() as cursor:
-            cursor.execute(check_valid,(request_data['passport'],))
+            cursor.execute(check_valid,(request_data['passport'],request_data['passport_valid_to']))
             s_valids = cursor.fetchall()
         mult_val = False
         for item in s_valids:
@@ -315,7 +315,7 @@ def mail():
         if mult_val:
             bill += 16
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO muitiple_validation VALUES (%s)""",(request_data['id'],))
+                cursor.execute("""INSERT INTO muitiple_validation VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
         # night
         if_night = check_night_time(last[0])
@@ -330,40 +330,40 @@ def mail():
             if check_brute(last):
                 bill += 0
                 with connection.cursor() as cursor:
-                    cursor.execute("""INSERT INTO same_card_num VALUES (%s)""",(request_data['id'],))
+                    cursor.execute("""INSERT INTO same_card_num VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
         # ddos
         if len(last) == 3:
-            if check_fast_operations(last):
+            if check_fast_operations(last,3):
                 bill += 0
                 with connection.cursor() as cursor:
-                    cursor.execute("""INSERT INTO fast_operations VALUES (%s)""",(request_data['id'],))
+                    cursor.execute("""INSERT INTO fast_operations VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
         # rejections
         if len(last) == 3:
             if check_decline(last):
                 bill += 0
                 with connection.cursor() as cursor:
-                    cursor.execute("""INSERT INTO many_declines VALUES (%s)""",(request_data['id'],))
+                    cursor.execute("""INSERT INTO many_declines VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
         # amount less
         if len(last) == 3:
             if check_reduction_of_the_amount(last):
                 bill += 0
                 with connection.cursor() as cursor:
-                    cursor.execute("""INSERT INTO decreasing_operation_sum VALUES (%s)""",(request_data['id'],))
+                    cursor.execute("""INSERT INTO decreasing_operation_sum VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
         # invalid passport
         if check_failed_passport_validation(last[0]):
             bill += 0
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO invalid_passport VALUES (%s)""",(request_data['id'],))
+                cursor.execute("""INSERT INTO invalid_passport VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
         # invalid account
         if check_failed_account_validation(last[0]):
             bill += 0
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO account_validation VALUES (%s)""",(request_data['id'],))
+                cursor.execute("""INSERT INTO account_validation VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
         # city
 
@@ -396,4 +396,4 @@ if __name__ == "__main__":
                 transaction_id BIGINT PRIMARY KEY
                 );""".format(tab=i))
     connection.commit()
-    app.run(host="0.0.0.0", port=7100, debug=True)
+    app.run(host="0.0.0.0", port=7100, debug=True,threaded=True)
