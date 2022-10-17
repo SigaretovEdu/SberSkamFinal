@@ -91,28 +91,6 @@ def check_age(data: dict):
         return False
 
 
-# def check_personals(data, client_rating: dict, f=0):
-#     print('*****\ndetected in changing personals without changing passport')
-#     answer = []
-#     d = {}
-#     for item in data:
-#         if data[item]['client'] not in d.keys():
-#             d[data[item]['client']] = {(data[item]['last_name'], data[item]['first_name'], data[item]['patronymic'])}
-#         else:
-#             d[data[item]['client']].add((data[item]['last_name'], data[item]['first_name'], data[item]['patronymic']))
-#     for k, v in d.items():
-#         if len(v) > 1:
-#             client_rating[k] -= 7
-#             for item in data:
-#                 if data[item]['client'] == k:
-#                     answer.append(item)
-#     if f == 1:
-#         for item in answer:
-#             print(data[item])
-#     print('total count: ', len(answer))
-#     return answer
-
-
 def check_decline(l: list):
     if l[0]['oper_result'] == 'Отказ' and l[1]['oper_result'] == 'Отказ' and l[2]['oper_result'] == 'Отказ':
         return True
