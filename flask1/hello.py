@@ -25,19 +25,13 @@ def check_diff(s1: str, s2: str):
         return False
 
 
-def check_failed_passport_validation(data: dict, client_rating: dict, f=0):
-    print('*****\ndetected for failed passport validation')
-    answer = []
-    for item in data:
-        if datetime.datetime.strptime(data[item]['date'].split('T')[0], "%Y-%m-%d") > datetime.datetime.strptime(
-                data[item]['passport_valid_to'].split('T')[0], "%Y-%m-%d"):
-            client_rating[data[item]['client']] -= 16
-            answer.append(item)
-    if f == 1:
-        for item in answer:
-            print(data[item])
-    print('total count: ', len(answer))
-    return answer
+def check_failed_passport_validation(data: dict):
+    t1 = datetime.datetime.strptime(data['date'].split('T')[0], "%Y-%m-%d")
+    t2 = datetime.datetime.strptime(data['passport_valid_to'].split('T')[0], "%Y-%m-%d")
+    if t1 > t2:
+        return True
+    else:
+        return False
 
 
 def check_failed_account_validation(data: dict):
@@ -97,26 +91,26 @@ def check_age(data: dict):
         return False
 
 
-def check_personals(data, client_rating: dict, f=0):
-    print('*****\ndetected in changing personals without changing passport')
-    answer = []
-    d = {}
-    for item in data:
-        if data[item]['client'] not in d.keys():
-            d[data[item]['client']] = {(data[item]['last_name'], data[item]['first_name'], data[item]['patronymic'])}
-        else:
-            d[data[item]['client']].add((data[item]['last_name'], data[item]['first_name'], data[item]['patronymic']))
-    for k, v in d.items():
-        if len(v) > 1:
-            client_rating[k] -= 7
-            for item in data:
-                if data[item]['client'] == k:
-                    answer.append(item)
-    if f == 1:
-        for item in answer:
-            print(data[item])
-    print('total count: ', len(answer))
-    return answer
+# def check_personals(data, client_rating: dict, f=0):
+#     print('*****\ndetected in changing personals without changing passport')
+#     answer = []
+#     d = {}
+#     for item in data:
+#         if data[item]['client'] not in d.keys():
+#             d[data[item]['client']] = {(data[item]['last_name'], data[item]['first_name'], data[item]['patronymic'])}
+#         else:
+#             d[data[item]['client']].add((data[item]['last_name'], data[item]['first_name'], data[item]['patronymic']))
+#     for k, v in d.items():
+#         if len(v) > 1:
+#             client_rating[k] -= 7
+#             for item in data:
+#                 if data[item]['client'] == k:
+#                     answer.append(item)
+#     if f == 1:
+#         for item in answer:
+#             print(data[item])
+#     print('total count: ', len(answer))
+#     return answer
 
 
 def check_decline(l: list):
