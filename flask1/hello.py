@@ -160,8 +160,31 @@ def readlastn(n: int, cl: str):
     a = (cl, n)
     with connection.cursor() as cursor:
         cursor.execute(select_last_n, a)
-        for item in cursor.fetchall():
-            answer.append(item)
+        roar=cursor.fetchall()
+        print(roar)
+        for pars in roar:
+            d = {"id": int(pars[0]),
+                "date": pars[1],
+                "card": pars[2],
+                "account": pars[3],
+                "account_valid_to": pars[4],
+                "client": pars[5],
+                "last_name": pars[6],
+                "first_name": pars[7],
+                "patronymic": pars[8],
+                "date_of_birth": pars[9],
+                "passport": pars[10],
+                "passport_valid_to": pars[11],
+                "phone": pars[12],
+                "oper_type": pars[13],
+                "amount": float(pars[14]),
+                "oper_result": pars[15],
+                "terminal": pars[16],
+                "terminal_type": pars[17],
+                "city": pars[18],
+                "address": pars[19]
+                }
+            answer.append(d)
     return answer
 
 
@@ -194,9 +217,9 @@ rating = """CREATE TABLE IF NOT EXISTS client_rating (
 validat = """CREATE TABLE IF NOT EXISTS validation (
     passport CHARACTER VARYING (25),
     passport_valid_to CHARACTER VARYING (25)
-)"""
+);"""
 
-check_valid="""SELECT passport_valid_to FROM validation WHERE passport = %s"""
+check_valid="""SELECT passport_valid_to FROM validation WHERE passport = %s;"""
 
 initcommand = """CREATE TABLE IF NOT EXISTS transactions (
     transaction_id BIGINT PRIMARY KEY,
@@ -222,11 +245,11 @@ initcommand = """CREATE TABLE IF NOT EXISTS transactions (
 );"""
 
 select_all = """ 
-    SELECT * FROM transactions WHERE client=%s 
+    SELECT * FROM transactions WHERE client=%s;
 """
 
 select_last_n = """ 
-    SELECT * FROM transactions WHERE client=%s ORDER BY transaction_id DESC LIMIT %s  
+    SELECT * FROM transactions WHERE client=%s ORDER BY transaction_id DESC LIMIT %s;  
 """
 
 pon = (
@@ -236,12 +259,14 @@ pon = (
     'terminal_type', 'city', 'address')
 
 add_command1 = """
-    INSERT INTO transactions VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);
+    INSERT INTO transactions VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (transaction_id) DO NOTHING;
 """
 add_command2 = """
     INSERT INTO client_rating VALUES(%s,%s,%s,%s,%s) ON CONFLICT (client_id) DO NOTHING;
 """
-
+add_command3 = """
+    INSERT INTO validation VALUES(%s,%s) ON CONFLICT (passport) DO NOTHING;
+"""
 
 def init(data: dict):
     l = []
@@ -264,16 +289,18 @@ def mail():
         with connection.cursor() as cursor:
             cursor.execute(add_command1, init(request_data))
             cursor.execute(add_command2,(request_data['client'],100,0,0,0))
+            cursor.execute(add_command3,(request_data['passport'],request_data['passport_valid_to']))
 
         
         last=readlastn(3,request_data['client'])
         bill = 0
+        print(last)
 
         # age
         if check_age(last[0]):
             with connection.cursor() as cursor:
-                cursor.execute("""UPDATE client_rating SET age=1 WHERE client_id=%s""",(request_data['id'],))
-                cursor.execute("""INSERT INTO to_old_or_young VALUES %s""",(request_data['id'],))
+                cursor.execute("""UPDATE client_rating SET age=1 WHERE client_id=%s;""",(request_data['client'], ))
+                cursor.execute("""INSERT INTO to_old_or_young (transaction_id) VALUES (%s) ;""", (request_data['id'],))
 
         
         # multiple validation
@@ -288,57 +315,64 @@ def mail():
         if mult_val:
             bill += 16
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO muitiple_validation VALUES %s""",(request_data['id']))
+                cursor.execute("""INSERT INTO muitiple_validation VALUES (%s)""",(request_data['id'],))
 
         # night
         if_night = check_night_time(last[0])
-        if if_night:
-            cursor.execute("""UPDATE client_rating SET day_operations = day_operations + 1 WHERE client=%s""",(request_data['client'],))
-        else:
-            cursor.execute("""UPDATE client_rating SET day_operations = night_operations + 1 WHERE client=%s""",(request_data['client'],))
+        with connection.cursor() as cursor:
+            if if_night:
+                cursor.execute("""UPDATE client_rating SET day_operations = day_operations + 1 WHERE client_id=%s""",(request_data['client'],))
+            else:
+                cursor.execute("""UPDATE client_rating SET day_operations = night_operations + 1 WHERE client_id=%s""",(request_data['client'],))
 
         # brute
-        if check_brute(last) and len(last) == 3:
-            bill += 0
-            with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO same_card_num VALUES %s""",(request_data['id'],))
+        if len(last) == 3:
+            if check_brute(last):
+                bill += 0
+                with connection.cursor() as cursor:
+                    cursor.execute("""INSERT INTO same_card_num VALUES (%s)""",(request_data['id'],))
 
         # ddos
-        if check_fast_operations(last) and len(last) == 3:
-            bill += 0
-            with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO fast_operations VALUES %s""",(request_data['id'],))
+        if len(last) == 3:
+            if check_fast_operations(last):
+                bill += 0
+                with connection.cursor() as cursor:
+                    cursor.execute("""INSERT INTO fast_operations VALUES (%s)""",(request_data['id'],))
 
         # rejections
-        if check_decline(last) and len(last) == 3:
-            bill += 0
-            with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO many_declines VALUES %s""",(request_data['id'],))
+        if len(last) == 3:
+            if check_decline(last):
+                bill += 0
+                with connection.cursor() as cursor:
+                    cursor.execute("""INSERT INTO many_declines VALUES (%s)""",(request_data['id'],))
 
         # amount less
-        if check_reduction_of_the_amount(last) and len(last) == 3:
-            bill += 0
-            with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO decreasing_operation_sum VALUES %s""",(request_data['id'],))
+        if len(last) == 3:
+            if check_reduction_of_the_amount(last):
+                bill += 0
+                with connection.cursor() as cursor:
+                    cursor.execute("""INSERT INTO decreasing_operation_sum VALUES (%s)""",(request_data['id'],))
 
         # invalid passport
         if check_failed_passport_validation(last[0]):
             bill += 0
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO invalid_passport VALUES %s""",(request_data['id'],))
+                cursor.execute("""INSERT INTO invalid_passport VALUES (%s)""",(request_data['id'],))
 
         # invalid account
         if check_failed_account_validation(last[0]):
             bill += 0
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO account_validation VALUES %s""",(request_data['id'],))
+                cursor.execute("""INSERT INTO account_validation VALUES (%s)""",(request_data['id'],))
 
         # city
 
 
         with connection.cursor() as cursor:
-            cursor.execute("""UPDATE client_rating SET rating=rating-%s WHERE client_id=%s""",(bill,request_data['client_id']))
+            cursor.execute("""UPDATE client_rating SET rating=rating-%s WHERE client_id=%s""",(bill,request_data['client']))
         connection.commit()
+
+        return 'good request', 200
     else:
         return 'bad request', 400
 
@@ -359,7 +393,7 @@ if __name__ == "__main__":
         cursor.execute(city_c)
         for i in frod_types:
             cursor.execute("""CREATE TABLE IF NOT EXISTS {tab} (
-                transaction_id SERIAL PRIMARY KEY
-                )""".format(tab=i))
+                transaction_id BIGINT PRIMARY KEY
+                );""".format(tab=i))
     connection.commit()
     app.run(host="0.0.0.0", port=7100, debug=True)
