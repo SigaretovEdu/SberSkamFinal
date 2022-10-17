@@ -53,6 +53,22 @@ initcommand = """CREATE TABLE IF NOT EXISTS transactions (
     address CHARACTER VARYING (100)
 );"""
 
+select_all = """ 
+    SELECT * FROM transactions WHERE client=%s 
+"""
+
+select_last_n = """ 
+    SELECT * FROM transactions WHERE client=%s ORDER BY transaction_id DESC LIMIT %s  
+"""
+
+
+pon = (
+    'transaction_id', 'date', 'card', 'account', 'account_valid_to', 'client', 'last_name', 'first_name',
+    'patronymic',
+    'date_of_birth', 'passport', 'passport_valid_to', 'phone', 'oper_type', 'amount', 'oper_result', 'terminal',
+    'terminal_type', 'city', 'address')
+
+
 add_command = """
     INSERT INTO transactions (date,card,account,account_valid_to,client,last_name,first_name,patronymic,date_of_birth,passport,passport_valid_to,phone,oper_type,amount,oper_result,terminal,terminal_type,city,address) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);
 """
@@ -71,6 +87,7 @@ def init(data: dict):
 @app.route('/', methods=['POST', 'GET'])
 def mail():
     request_data = request.json
+
     with connection.cursor() as cursor:
         cursor.execute(add_command, init(request_data))
     connection.commit()
@@ -412,9 +429,9 @@ def readall(l_n: str, f_n: str, pat: str):
     return answer
 
 
-def readlastn(n: int, l_n: str, f_n: str, pat: str):
-    answer = {}
-    a = (l_n, f_n, pat, 5)
+def readlastn(n: int, cl: str):
+    answer = []
+    a = (cl, n)
     cursor.execute(select_last_n, a)
     for item in cursor.fetchall():
         answer[item[0]] = {}
