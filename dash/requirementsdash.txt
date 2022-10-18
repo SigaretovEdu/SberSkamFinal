@@ -1,3 +1,5 @@
-altair
+streamlit==1.11.0
 pandas
-streamlit
+numpy
+plotly
+psycopg2

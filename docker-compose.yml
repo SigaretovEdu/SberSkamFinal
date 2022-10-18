@@ -30,3 +30,19 @@ services:
       - "7100:7100"
     volumes:
       - ./flask1:/opt/app
+    
+  dash_board:
+    build:
+      context: "."
+      dockerfile: "./dash/DockerfileDash"
+    command: steamlit run dash/app.py
+    depends_on:
+      - db_auth
+    expose:
+      - "7000"
+    ports:
+      - "7000:7000"
+    volumes:
+      - ./dash:/opt/app
+    image: yourstreamlitapp:latest
+    

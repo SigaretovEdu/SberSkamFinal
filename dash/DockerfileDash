@@ -1,18 +1,14 @@
-FROM python:3.9-slim
+FROM python:3.7
 
 WORKDIR /opt/app
 
-COPY dash/requirements.txt /opt/app
-COPY https://github.com/streamlit/streamlit-example.git /opt/app/
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    software-properties-common \
-    git \
-    && rm -rf /var/lib/apt/lists/* \
-    pip3 install --no-cache-dir requirements.txt
-# RUN git clone https://github.com/streamlit/streamlit-example.git .
+COPY dash/requirementsdash.txt /opt/app
+
+RUN pip3 install --no-cache-dir -r requirementsdash.txt
 
 
 
-ENTRYPOINT ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+ENTRYPOINT ["streamlit", "run", "app.py"]

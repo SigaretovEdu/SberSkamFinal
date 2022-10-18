@@ -5,9 +5,11 @@ import numpy as np
 import plotly.express as px
 from urllib.request import urlopen
 import json
-# from st_aggrid import AgGrid
 import csv
 import psycopg2
+import time
+
+
 frod_types = {'to_old_or_young': 1,
               'same_card_num': 3,
               'fast_operations': 4,
@@ -37,19 +39,6 @@ pon = (
 clients = {}  # client : [rating, night, day, age, mult]
 tr = []  # all transactions
 patt = {}  # num_of_pattern : [all his transaction]
-
-# with open('clients.txt', 'r') as f:
-#     lines = f.readlines()
-#     for line in lines:
-#         l = line.replace(',', '').replace('[', '').replace(']', '').split(' ')
-#         clients[l[0]] = [float(l[1]), int(l[2]), int(l[3]), int(l[4]), int(l[5])]
-
-# with open('patt.txt', 'r') as f:
-#     lines = f.readlines()
-#     for line in lines:
-#         l = line.replace('[', '').replace(']', '').split(' ')
-#         patt[int(l[0])] = l[1:]
-
 
 connection = psycopg2.connect(
     host="localhost",
@@ -101,8 +90,6 @@ for k, v in clients.items():
       if v[4] == 1:
             v[0] -= 25
 
-print(len(clients))
-print(len(patt))
 
 
 with open('clients.csv', 'w', newline='', encoding='utf8') as csvfile:
@@ -198,12 +185,26 @@ with open('patt.csv', 'rb') as f:
 st.dataframe(df)
 
 
-# st.text(f"Распределение возрастов")
-# with open('ages.csv', 'rb') as f:
-#       df = pd.read_csv(f)
-# st.bar_chart(df)
+s = set()
+for item in patt.values():
+    for tr in item:
+        s.add(int(tr))
+l_of_tr = sorted(s)
+st.text(f"Транзакции, являющиеся фродовыми (суммарно {len(l_of_tr)}):")
+st.write(l_of_tr)
 
-# chart_data = pd.DataFrame(
-# [10,13, 11],
-# columns=["Energy Costs"])
-# st.bar_chart(chart_data)
+
+rating_list = [0, 0, 0]
+for v in clients.values():
+    if v[0] < 50:
+        rating_list[0] += 1
+    elif 50 <= v[0] and v[0] <85:
+        rating_list[1] += 1
+    else:
+        rating_list[2] += 1
+df = pd.DataFrame({
+    "type": ['good', 'medium', 'bad'],
+    "value": [rating_list[2], rating_list[1], rating_list[0]]
+})
+st.text(f"Всего аккаунтов {sum(rating_list)}")
+st.dataframe(df)
