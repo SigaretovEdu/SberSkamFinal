@@ -194,8 +194,7 @@ frod_types=['to_old_or_young',
 'many_declines',
 'decreasing_operation_sum',
 'invalid_passport',
-'account_validation',
-'muitiple_validation']
+'account_validation']
 
 city_c="""CREATE TABLE IF NOT EXISTS city_coords (
     city_name CHARACTER VARYING (25) PRIMARY KEY,
@@ -313,17 +312,17 @@ def mail():
                 mult_val = True
                 break
         if mult_val:
-            bill += 16
+            bill += 0
             with connection.cursor() as cursor:
-                cursor.execute("""INSERT INTO muitiple_validation VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
+                cursor.execute("""UPDATE client_rating SET mult=1 WHERE client_id=%s;""",(request_data['client'], ))
 
         # night
         if_night = check_night_time(last[0])
         with connection.cursor() as cursor:
             if if_night:
-                cursor.execute("""UPDATE client_rating SET day_operations = day_operations + 1 WHERE client_id=%s""",(request_data['client'],))
+                cursor.execute("""UPDATE client_rating SET night_operations = night_operations + 1 WHERE client_id=%s""",(request_data['client'],))
             else:
-                cursor.execute("""UPDATE client_rating SET day_operations = night_operations + 1 WHERE client_id=%s""",(request_data['client'],))
+                cursor.execute("""UPDATE client_rating SET day_operations = day_operations + 1 WHERE client_id=%s""",(request_data['client'],))
 
         # brute
         if len(last) == 3:
