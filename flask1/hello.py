@@ -99,51 +99,40 @@ def check_decline(l: list):
         return False
 
 
-def check_adress_distance(data, client_rating: dict, f=0):
-    print('*****\ndetected in making transactions in too remote cities')
-    cities, d = {}, {}
-    create_txt = False
-    wikipedia.set_lang("ru")
-    if not exists('cities_cors.json'):
-        create_txt = True
-        print('downloading cities coordinatescoordinates...')
-    else:
-        with open('cities_cors.json', 'r') as inp:
-            cities = dict(json.load(inp))
-    for item in data:
-        if data[item]['client'] not in d.keys():
-            d[data[item]['client']] = [(item, data[item]['date'], data[item]['city'])]
-        else:
-            d[data[item]['client']].append((item, data[item]['date'], data[item]['city']))
-
-        if create_txt:
-            if data[item]['city'] not in cities.keys():
-                try:
-                    cor = wikipedia.page('город ' + data[item]['city']).coordinates
-                    cities[data[item]['city']] = (float(cor[0]), float(cor[1]))
-                except:
-                    cities[data[item]['city']] = (0, 0)
-    if create_txt:
-        with open('cities_cors.json', 'w') as outfile:
-            json.dump(cities, outfile)
-    an = set()
-    for k, v in d.items():
-        for i in range(0, len(v) - 1):
-            if cities[v[i][2]] != (0, 0) and cities[v[i + 1][2]] != (0, 0):
-                t1 = datetime.datetime.strptime(v[i][1], "%Y-%m-%dT%H:%M:%S")
-                t2 = datetime.datetime.strptime(v[i + 1][1], "%Y-%m-%dT%H:%M:%S")
-                h = (geodesic(cities[v[i][2]], cities[v[i + 1][2]]).kilometers) / 750
-                if t1 + datetime.timedelta(hours=h) > t2:
-                    an.add(v[i][0])
-                    an.add(v[i + 1][0])
-                    client_rating[k] -= 25.5
-    answer = sorted(an)
-    if f == 1:
-        for item in answer:
-            print(data[item])
-    print('total count: ', len(answer))
-    return answer
-
+def check_adress_distance(l:list):
+    with connection.cursor() as cursor:
+        cursor.execute(matches, (l[0]['city'],))
+        town1=bool(cursor.fetchone()[0])
+    with connection.cursor() as cursor:
+        cursor.execute(matches, (l[1]['city'],))
+        town2=bool(cursor.fetchone()[0])
+        
+        wikipedia.set_lang("ru")
+        if not town1:
+            try:
+                cor = wikipedia.page('город ' + l[0]['city']).coordinates
+            except:
+                cor = (0,0)
+            cursor.execute("""INSERT INTO city_coords VALUES(%s,%s,%s) ON CONFLICT (city_name) DO NOTHING""",(l[0]['city'],cor[0],cor[1]))
+        if not town2:
+            try:
+                cor = wikipedia.page('город ' + l[1]['city']).coordinates
+            except:
+                cor = (0,0)
+            cursor.execute("""INSERT INTO city_coords VALUES(%s,%s,%s) ON CONFLICT (city_name) DO NOTHING""",(l[1]['city'],cor[0],cor[1]))
+    with connection.cursor() as cursor:
+        cursor.execute("""SELECT x_deg, y_deg FROM city_coords WHERE city_name=%s""",(l[0]['city'],))
+        temp1=cursor.fetchone()
+    with connection.cursor() as cursor:
+        cursor.execute("""SELECT x_deg, y_deg FROM city_coords WHERE city_name=%s""",(l[1]['city'],))
+        temp2=cursor.fetchone()
+    if temp1!=(0,0) and temp2!=(0,0):
+        t1 = datetime.datetime.strptime(l[0]['date'], "%Y-%m-%dT%H:%M:%S")           
+        t2 = datetime.datetime.strptime(l[1]['date'], "%Y-%m-%dT%H:%M:%S")
+        h = (geodesic(temp1, temp2).kilometers) / 750
+        if t1 + datetime.timedelta(hours=h) > t2:
+            return True
+    return False
 
 def readall(l_n: str, f_n: str, pat: str):
     answer = {}
@@ -194,7 +183,8 @@ frod_types=['to_old_or_young',
 'many_declines',
 'decreasing_operation_sum',
 'invalid_passport',
-'account_validation']
+'account_validation',
+'dist']
 
 city_c="""CREATE TABLE IF NOT EXISTS city_coords (
     city_name CHARACTER VARYING (25) PRIMARY KEY,
@@ -202,6 +192,7 @@ city_c="""CREATE TABLE IF NOT EXISTS city_coords (
     y_deg REAL
 );"""
 
+matches="""SELECT EXISTS (SELECT city_name FROM city_coords WHERE city_name = %s);"""
 
 rating = """CREATE TABLE IF NOT EXISTS client_rating (
     client_id CHARACTER VARYING (10) PRIMARY KEY,
@@ -365,10 +356,17 @@ def mail():
                 cursor.execute("""INSERT INTO account_validation VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
         # city
+        if len(last)>1:
+            if check_adress_distance(last):
+                bill += 0
+                with connection.cursor() as cursor:
+                    cursor.execute("""INSERT INTO dist VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
+
 
 
         with connection.cursor() as cursor:
             cursor.execute("""UPDATE client_rating SET rating=rating-%s WHERE client_id=%s""",(bill,request_data['client']))
+        
         connection.commit()
 
         return 'good request', 200
