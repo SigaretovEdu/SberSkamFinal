@@ -184,7 +184,8 @@ frod_types=['to_old_or_young',
 'decreasing_operation_sum',
 'invalid_passport',
 'account_validation',
-'dist']
+'dist',
+'multiple_passport_validation']
 
 city_c="""CREATE TABLE IF NOT EXISTS city_coords (
     city_name CHARACTER VARYING (25) PRIMARY KEY,
@@ -303,9 +304,9 @@ def mail():
                 mult_val = True
                 break
         if mult_val:
-            bill += 0
             with connection.cursor() as cursor:
                 cursor.execute("""UPDATE client_rating SET mult=1 WHERE client_id=%s;""",(request_data['client'], ))
+                cursor.execute("""INSERT INTO multiple_passport_validation (transaction_id) VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING;""", (request_data['id'],))
 
         # night
         if_night = check_night_time(last[0])
@@ -318,40 +319,40 @@ def mail():
         # brute
         if len(last) == 3:
             if check_brute(last):
-                bill += 0
+                bill += 4
                 with connection.cursor() as cursor:
                     cursor.execute("""INSERT INTO same_card_num VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
         # ddos
         if len(last) == 3:
             if check_fast_operations(last,3):
-                bill += 0
+                bill += 4.5
                 with connection.cursor() as cursor:
                     cursor.execute("""INSERT INTO fast_operations VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
         # rejections
         if len(last) == 3:
             if check_decline(last):
-                bill += 0
+                bill += 3
                 with connection.cursor() as cursor:
                     cursor.execute("""INSERT INTO many_declines VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
         # amount less
         if len(last) == 3:
             if check_reduction_of_the_amount(last):
-                bill += 0
+                bill += 3.5
                 with connection.cursor() as cursor:
                     cursor.execute("""INSERT INTO decreasing_operation_sum VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
         # invalid passport
         if check_failed_passport_validation(last[0]):
-            bill += 0
+            bill += 16
             with connection.cursor() as cursor:
                 cursor.execute("""INSERT INTO invalid_passport VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
         # invalid account
         if check_failed_account_validation(last[0]):
-            bill += 0
+            bill += 2
             with connection.cursor() as cursor:
                 cursor.execute("""INSERT INTO account_validation VALUES (%s) ON CONFLICT (transaction_id) DO NOTHING""",(request_data['id'],))
 
